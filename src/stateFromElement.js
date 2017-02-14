@@ -53,6 +53,7 @@ type Options = {
   elementStyles?: ElementStyles;
   blockTypes?: {[key: string]: string};
   customBlockFn?: (element: DOMElement) => ?{type?: string, data?: BlockData};
+  customInlineFn?: (element: DOMElement) => ?{type?: string, data?: BlockData};
 };
 
 const NO_STYLE = OrderedSet();
@@ -292,7 +293,10 @@ class BlockGenerator {
   }
 
   processInlineElement(element: DOMElement) {
+    let {customInlineFn} = this.options;
+    let {isSelfClosing} = element
     let tagName = element.nodeName.toLowerCase();
+
     if (tagName === 'br') {
       this.processText(SOFT_BREAK_PLACEHOLDER);
       return;
@@ -301,6 +305,17 @@ class BlockGenerator {
     let style = block.styleStack.slice(-1)[0];
     let entityKey = block.entityStack.slice(-1)[0];
     style = addStyleFromTagName(style, tagName, this.options.elementStyles);
+    if (customInlineFn) {
+      let customInline = customInlineFn(element);
+      if (customInline != null) {
+        isSelfClosing = customInline.isSelfClosing || false
+        let mutability = customInline.mutability || 'IMMUTABLE'
+        // console.log("**** entityKey before **** ", entityKey)
+        // console.log("**** customInline **** ", customInline)
+        entityKey = Entity.create(customInline.type, mutability, customInline.data);
+        // console.log("**** entityKey after **** ", entityKey)
+      }
+    }
     if (ELEM_TO_ENTITY.hasOwnProperty(tagName)) {
       // If the to-entity function returns nothing, use the existing entity.
       entityKey = ELEM_TO_ENTITY[tagName](tagName, element) || entityKey;
@@ -310,7 +325,7 @@ class BlockGenerator {
     if (element.childNodes != null) {
       Array.from(element.childNodes).forEach(this.processNode, this);
     }
-    if (SELF_CLOSING_ELEMENTS.hasOwnProperty(tagName)) {
+    if (isSelfClosing || SELF_CLOSING_ELEMENTS.hasOwnProperty(tagName)) {
       this.processText('\u00A0');
     }
     block.entityStack.pop();

@@ -76,6 +76,56 @@ describe('stateFromElement', () => {
     );
   });
 
+  it('supports option customInlineFn (iframe)', () => {
+    let textNode = new TextNode('Custom Inline Fn');
+    // let element = new ElementNode('sup', [{src:"https://www.npmjs.com/"}], [textNode]);
+    // let element = new ElementNode('iframe', [{src:"https://www.npmjs.com/"}], []);
+    let element = new ElementNode('iframe', [{src:"https://www.npmjs.com/"}], []);
+    // let wrapperElement = new ElementNode('p', [], [textNode, element]);
+    // let wrapperElement = new ElementNode('p', [], [new ElementNode('b', null, [new TextNode('Custom Inline Fn')]), element]);
+    let wrapperElement = new ElementNode('p', [], [element]);
+
+    let options = {
+      customInlineFn(element) {
+        console.log("Callback", element)
+        console.log("tagName", element.nodeName.toLowerCase())
+        let {attributes, nodeName} = element;
+
+        console.log("----", attributes, nodeName)
+        if (nodeName.toLowerCase() === 'iframe' && attributes.length > 0) {
+          return {
+            type: 'IFRAME',
+            data: attributes[0],
+            isSelfClosing: true,
+          }
+        }
+      },
+    };
+    let contentState = stateFromElement(wrapperElement, options);
+    let rawContentState = removeBlockKeys(convertToRaw(contentState));
+    expect(rawContentState).toEqual({
+      entityMap: {
+        "0": {
+          type: "IFRAME",
+          mutability: "IMMUTABLE",
+          data: {src:"https://www.npmjs.com/"}
+        }
+      },
+      blocks: [{
+        text: " ",
+        type: 'unstyled',
+        data: {},
+        depth: 0,
+        inlineStyleRanges: [],
+        entityRanges: [{
+          "key": 0,
+          "length": 1,
+          "offset": 0,
+        }]
+      }],
+    });
+  });
+
   it('supports option elementStyles', () => {
     let textNode = new TextNode('Superscript');
     let element = new ElementNode('sup', [], [textNode]);
