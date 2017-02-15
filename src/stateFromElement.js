@@ -167,6 +167,10 @@ class BlockGenerator {
     this.blockList.forEach((block) => {
       let {text, characterMeta} = concatFragments(block.textFragments);
       let includeEmptyBlock = false;
+      // if inline converted to block
+      if (INLINE_ELEMENTS.hasOwnProperty(block.tagName)) {
+        includeEmptyBlock = true;
+      }
       // If the block contains only a soft break then don't discard the block,
       // but discard the soft break.
       if (text === SOFT_BREAK_PLACEHOLDER) {
@@ -266,7 +270,8 @@ class BlockGenerator {
       type = this.getBlockTypeFromTagName(tagName);
     }
     let hasDepth = canHaveDepth(type);
-    let allowRender = !SPECIAL_ELEMENTS.hasOwnProperty(tagName);
+    let allowRender = !SPECIAL_ELEMENTS.hasOwnProperty(tagName) ||
+                      INLINE_ELEMENTS.hasOwnProperty(tagName);
     let block: ParsedBlock = {
       tagName: tagName,
       textFragments: [],
@@ -308,12 +313,14 @@ class BlockGenerator {
     if (customInlineFn) {
       let customInline = customInlineFn(element);
       if (customInline != null) {
+        if (customInline.isBlock) {
+          this.processBlockElement(element);
+          return
+        }
+
         isSelfClosing = customInline.isSelfClosing || false
         let mutability = customInline.mutability || 'IMMUTABLE'
-        // console.log("**** entityKey before **** ", entityKey)
-        // console.log("**** customInline **** ", customInline)
         entityKey = Entity.create(customInline.type, mutability, customInline.data);
-        // console.log("**** entityKey after **** ", entityKey)
       }
     }
     if (ELEM_TO_ENTITY.hasOwnProperty(tagName)) {
